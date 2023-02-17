@@ -16,6 +16,8 @@ class Multi_Head_Attention(nn.Module):
         self.value_layer = nn.Linear(model_dimension, self.value_dimension)
         
         self.linear_transform = nn.Linear()
+        
+        
     
     ## query : sequence_length * key dimension
     ## key : sequence_length * key dimension
@@ -100,6 +102,7 @@ class Decoder :
         ## masked multi head attention
         h1 = self.multi_head_attention(query=y, key=y, value=y, is_masked = True)
         out1 = self.layer_norm(y + h1)
+        
         
         ## multi head attention
         h2 = self.multi_head_attention(query=y, key=x, value=x)
