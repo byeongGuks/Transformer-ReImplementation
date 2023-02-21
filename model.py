@@ -4,45 +4,49 @@ import numpy as np
 import math
 
 class Multi_Head_Attention(nn.Module):
-    def __init__ (self, model_dimension=512, h=8, key_dimension=64, value_dimension=64) :
+    def __init__ (self, model_dimension=512, h=8) :
         super(Multi_Head_Attention, self).__init__()
         self.model_dimension = model_dimension
         self.num_head = h
-        self.key_dimension = key_dimension
-        self.value_dimension = value_dimension
+        self.key_dimension = model_dimension / h
+        self.value_dimension = model_dimension / h
         
-        self.query_layer = nn.Linear(model_dimension, self.key_dimension)
-        self.key_layer = nn.Linear(model_dimension, self.key_dimension)
-        self.value_layer = nn.Linear(model_dimension, self.value_dimension)
+        self.query_layer = nn.Linear(model_dimension, model_dimension)
+        self.key_layer = nn.Linear(model_dimension, model_dimension)
+        self.value_layer = nn.Linear(model_dimension, model_dimension)
         
-        self.linear_transform = nn.Linear()
+        self.linear_transform = nn.Linear(model_dimension, model_dimension)
         
         
-    
-    ## query : sequence_length * key dimension
-    ## key : sequence_length * key dimension
-    ## value : sequence_length * value dimension
+    ## query :  key dimension
+    ## key : key dimension
+    ## value : value dimension
     def __calculate_attention(self, query, key, value) :
-        attention = torch.mm(key, torch.transpose(query, 0, 1)) / math.sqrt(self.key_dimension) ## sequence length * sequence length 
-        attention_score = torch.nn.functional.softmax(attention, dim=1) ## sequence length * sequence length 
+        attention = torch.mm(key, torch.transpose(query, 0, 1)) / math.sqrt(self.key_dimension) ## dot product attention / key dimension
+        attention_score = torch.nn.functional.softmax(attention, dim=1) 
         attention_value = torch.mm(attention_score, value) ## sequence length * value dimenstion 
         return attention_value
         
     def forward (self, query, key, value, is_masked = False) :
-        q1 = self.query_layer(query)
-        k1 = self.key_layer(key)
-        v1 = self.value_layer(value)
+        queries = self.query_layer(query)
+        keys = self.key_layer(key)
+        values = self.value_layer(value)
         
-        output = [self.__calculate_attention(query=q1, key=k1, value=v1) for i in range(self.num_head)]
-        return self.__calculate_attention(query=q1, key=k1, value=v1)
+        ## multi head attention
+        output = [self.__calculate_attention(query=queries[i*self.key_dimension::(i+1)*self.key_dimension], 
+                                             key=keys[i*self.key_dimension::(i+1)*self.key_dimension], 
+                                             value=values[i*self.key_dimension::(i+1)*self.key_dimension]) for i in range(self.num_head)]
+        
+        output = self.linear_transform(output)
+        return output
         
         
         
-class Embedding :
-    def __init__ (self, vocal_size, model_dimension=512,) :
+class Embedding(nn.Module):
+    def __init__ (self, vocab_size, model_dimension=512,) :
         super(Encoder, self).__init__()
         self.model_dimension = 512
-        self.embedding_layer = nn.Embedding(num_embeddings=vocal_size, 
+        self.embedding_layer = nn.Embedding(num_embeddings=vocab_size, 
                                             embedding_dim=model_dimension, 
                                             padding_idx=0)
         
@@ -56,14 +60,13 @@ class Embedding :
         positional_encodings[:, 1::2] = np.cos(positional_encodings[:, 1::2])
         return positional_encodings
 
-        
     def forward (self, x) :
-        embedded_x = self.embedding_layer(x)
+        embedded_x = self.embedding_layer(x) ## todo : . In the embedding layers, we multiply those weights by √dmodel.
         position_x = self.__make_positional_encodings(len(x))
         return embedded_x + position_x
 
 
-class Encoder :
+class Encoder(nn.Module):
     def __init__ (self, model_dimension = 512, fc_dimension=2048) :
         super(Encoder, self).__init__()
         self.multi_head_attention = Multi_Head_Attention()
@@ -87,7 +90,7 @@ class Encoder :
         
         
     
-class Decoder :
+class Decoder(nn.Module):
     def __init__ (self, model_dimension = 512, fc_dimension=2048) :
         super(Decoder, self).__init__()
         self.multi_head_attention = Multi_Head_Attention()
@@ -113,4 +116,28 @@ class Decoder :
         out3 = self.layer_norm(out2 + h3) 
         return out3
     
+class TransFormerModel(nn.Module) :
+    def __init__(self, model_dimension = 512, num_head = 8, num_encoder = 6, num_decoder = 6, vocab_size=32000):
+        self.model_dimension = model_dimension
+        self.num_head = num_head
+        self.num_encoder = num_encoder
+        self.num_decoder = num_decoder
+        self.vocab_size = vocab_size
+        self.encoders = [Encoder(self.model_dimension) for i in range(num_encoder)]
+        self.decoders = [Decoder(self.model_dimension) for i in range(num_encoder)]
+        self.in_embedding = Embedding(self.model_dimension)
+        self.out_embedding = Embedding(self.model_dimension)
+        
+    def __encode(self, x) :
+        
     
+    def forward(self, x, y):
+        embedded_x = self.in_embedding(x)
+        encoding_x = self
+
+    
+def test():
+    device = torch.device("cuda: 0" if torch.cuda.is_available() else "cpu")
+    
+if __name__ == "main":
+    test()
