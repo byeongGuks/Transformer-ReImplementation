@@ -44,7 +44,7 @@ class Multi_Head_Attention(nn.Module):
         
 class Embedding(nn.Module):
     def __init__ (self, vocab_size, model_dimension=512,) :
-        super(Encoder, self).__init__()
+        super(Embedding, self).__init__()
         self.model_dimension = 512
         self.embedding_layer = nn.Embedding(num_embeddings=vocab_size, 
                                             embedding_dim=model_dimension, 
@@ -127,17 +127,35 @@ class TransFormerModel(nn.Module) :
         self.decoders = [Decoder(self.model_dimension) for i in range(num_encoder)]
         self.in_embedding = Embedding(self.model_dimension)
         self.out_embedding = Embedding(self.model_dimension)
-        
-    def __encode(self, x) :
-        
+        self.Linear = nn.Linear(model_dimension, model_dimension)
+                
     
     def forward(self, x, y):
         embedded_x = self.in_embedding(x)
-        encoding_x = self
+        embedded_y = self.out_embedding(y) 
+        
+        for encoder in self.encoders :
+            embedded_x = encoder(embedded_x)
+        
+        for decoder in self.decoders :
+            embedded_y = decoder(embedded_x, embedded_y)
+        
+        output = self.Linear(embedded_y)
+        output = torch.nn.functional.softmax(output, dim=1) 
+        return output
 
     
 def test():
+    print("---start test---")
     device = torch.device("cuda: 0" if torch.cuda.is_available() else "cpu")
     
-if __name__ == "main":
+    input = torch.tensor([1,3,5,7])
+    output = torch.tensor([2,4,6,8])
+    model = TransFormerModel(model_dimension=512, num_head=1, num_encoder=1, num_decoder=1, vocab_size=20).to(device)
+    output = model(input, output)
+    print(output)
+
+    
+if __name__ == "__main__":
+    print("test")
     test()
