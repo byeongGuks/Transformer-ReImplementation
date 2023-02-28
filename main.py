@@ -4,24 +4,38 @@ import sklearn
 from sklearn.model_selection import train_test_split
 from tokenizer import Bpe_tokenizer
 from data_loader import TranslationDataset
+import argparse
+from data_loader import TranslationDataset
 
 
-VOCAB_SIZE = 1000
-file_path_en = 'data/de-en/train.en'
-file_path_de = 'data/de-en/train.en' #'data/de-en/train.de' ## file open 에서 codec 문제가 해결이 안됨,,,, 이유 찾기
-##file_path = 'data/de-en/bpe_ex.en'
+def get_arguments() :
+    parser = argparse.ArgumentParser(description='transformer argument description', prefix_chars='--')
+    parser.add_argument('--mode', default='train')
+    parser.add_argument('--max_sequence_length', default=512, help="max sequence length")
+    parser.add_argument('--vocab_size', default=16000, help="vocabulary size")
+    parser.add_argument('--train_file_path_input', default='data/de-en/train.en', help="input text")
+    parser.add_argument('--train_file_path_output', default='data/de-en/train.de', help="ouput text") ## file open 에서 codec 문제가 해결이 안됨,,,, 이유 찾기
+    parser.add_argument('--test_file_path_input', default="data/de-en/test.en")
+    parser.add_argument('--test_file_path_input', default="data/de-en/test.de")
+    
+    args = parser.parse_args()
+    
+    print(args.max_seq_len)    
+    return args
 
-file_reader_en = file_reader.Reader(file_path_en)
-sentence_en = file_reader_en.read_file()
+def train(args) :
+    train_dataset = TranslationDataset('data/de-en/', Bpe_tokenizer, args.vocab_size, language_pair="en-de")
+    
+    
 
+def test() :
+    return 0
 
-file_reader_de = file_reader.Reader(file_path_de)
-sentence_de = file_reader_de.read_file()
-
-x_train, x_valid, y_train, y_valid = train_test_split(sentence_en, sentence_de, test_size=0.2, shuffle=True)
-
-x_train_dictionary = file_reader_en.make_dictionry_and_count(sentence_en)
-y_train_dictionary = file_reader_de.make_dictionry_and_count(sentence_de)
+def main(args) :
+    if(args.mode == 'train') :
+        train()
+    if(args.mode == 'test') :
+        test()
 
 print(x_train_dictionary)
 

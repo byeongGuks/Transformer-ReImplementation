@@ -8,14 +8,15 @@ class Multi_Head_Attention(nn.Module):
         super(Multi_Head_Attention, self).__init__()
         self.model_dimension = model_dimension
         self.num_head = h
-        self.key_dimension = model_dimension / h
-        self.value_dimension = model_dimension / h
+        self.key_dimension = int(model_dimension / h)
+        self.value_dimension = int(model_dimension / h)
         
-        self.query_layer = nn.Linear(model_dimension, model_dimension)
-        self.key_layer = nn.Linear(model_dimension, model_dimension)
-        self.value_layer = nn.Linear(model_dimension, model_dimension)
+        self.query_layer = nn.Linear(model_dimension, model_dimension, dtype=torch.float64)
+        self.key_layer = nn.Linear(model_dimension, model_dimension, dtype=torch.float64)
+        self.value_layer = nn.Linear(model_dimension, model_dimension, dtype=torch.float64)
         
-        self.linear_transform = nn.Linear(model_dimension, model_dimension)
+        
+        self.linear_transform = nn.Linear(model_dimension, model_dimension, dtype=torch.float64)
         
         
     ## query :  key dimension
@@ -33,26 +34,24 @@ class Multi_Head_Attention(nn.Module):
         values = self.value_layer(value)
         
         ## multi head attention
-        output = [self.__calculate_attention(query=queries[i*self.key_dimension::(i+1)*self.key_dimension], 
-                                             key=keys[i*self.key_dimension::(i+1)*self.key_dimension], 
-                                             value=values[i*self.key_dimension::(i+1)*self.key_dimension]) for i in range(self.num_head)]
-        
+        output = torch.cat([self.__calculate_attention(query=queries[i*self.key_dimension:(i+1)*self.key_dimension], 
+                                             key=keys[i*self.key_dimension:(i+1)*self.key_dimension], 
+                                             value=values[i*self.key_dimension:(i+1)*self.key_dimension]) for i in range(self.num_head)], dim=0)
+  
         output = self.linear_transform(output)
         return output
         
         
-        
 class Embedding(nn.Module):
-    def __init__ (self, vocab_size, model_dimension=512,) :
+    def __init__ (self, vocab_size, model_dimension=512) :
         super(Embedding, self).__init__()
         self.model_dimension = 512
         self.embedding_layer = nn.Embedding(num_embeddings=vocab_size, 
                                             embedding_dim=model_dimension, 
                                             padding_idx=0)
-        
+
     def __make_positional_vector (self, pos) :
         return [pos/np.power(10000, 2*(hidden_i//2)/ self.model_dimension) for hidden_i in range(self.model_dimension)]
-        
     
     def __make_positional_encodings (self, sequence_length) :
         positional_encodings = np.array([self.__make_positional_vector(i) for i in range(sequence_length)])
@@ -63,19 +62,21 @@ class Embedding(nn.Module):
     def forward (self, x) :
         embedded_x = self.embedding_layer(x) ## todo : . In the embedding layers, we multiply those weights by √dmodel.
         position_x = self.__make_positional_encodings(len(x))
-        return embedded_x + position_x
-
+        return embedded_x + torch.tensor(position_x)
 
 class Encoder(nn.Module):
-    def __init__ (self, model_dimension = 512, fc_dimension=2048) :
+    def __init__ (self, model_dimension = 512, num_head = 8, fc_dimension=2048) :
         super(Encoder, self).__init__()
-        self.multi_head_attention = Multi_Head_Attention()
+        self.model_dimension = model_dimension
+        self.num_head = num_head
+        self.fc_dimension = fc_dimension
+        self.multi_head_attention = Multi_Head_Attention(model_dimension=self.model_dimension)
         self.fc_layer = nn.Sequential(
-            nn.Linear(model_dimension, fc_dimension),
+            nn.Linear(self.model_dimension, self.fc_dimension, dtype=torch.float64),
             nn.ReLU(),
-            nn.Linear(fc_dimension, model_dimension)
+            nn.Linear(self.fc_dimension, self.model_dimension, dtype=torch.float64)
         )
-        self.layer_norm = nn.LayerNorm(model_dimension)
+        self.layer_norm = nn.LayerNorm(self.model_dimension, dtype=torch.float64)
         
     
     def forward(self, x) :
@@ -118,13 +119,14 @@ class Decoder(nn.Module):
     
 class TransFormerModel(nn.Module) :
     def __init__(self, model_dimension = 512, num_head = 8, num_encoder = 6, num_decoder = 6, vocab_size=32000):
+        super(TransFormerModel, self).__init__()
         self.model_dimension = model_dimension
         self.num_head = num_head
         self.num_encoder = num_encoder
         self.num_decoder = num_decoder
         self.vocab_size = vocab_size
-        self.encoders = [Encoder(self.model_dimension) for i in range(num_encoder)]
-        self.decoders = [Decoder(self.model_dimension) for i in range(num_encoder)]
+        self.encoders = [Encoder(model_dimension = self.model_dimension) for i in range(num_encoder)]
+        self.decoders = [Decoder(model_dimension = self.model_dimension) for i in range(num_encoder)]
         self.in_embedding = Embedding(self.model_dimension)
         self.out_embedding = Embedding(self.model_dimension)
         self.Linear = nn.Linear(model_dimension, model_dimension)
@@ -136,6 +138,7 @@ class TransFormerModel(nn.Module) :
         
         for encoder in self.encoders :
             embedded_x = encoder(embedded_x)
+        return embedded_x
         
         for decoder in self.decoders :
             embedded_y = decoder(embedded_x, embedded_y)
@@ -149,8 +152,8 @@ def test():
     print("---start test---")
     device = torch.device("cuda: 0" if torch.cuda.is_available() else "cpu")
     
-    input = torch.tensor([1,3,5,7])
-    output = torch.tensor([2,4,6,8])
+    input = torch.LongTensor([i for i in range(512)])
+    output = torch.LongTensor([i for i in range(512)])
     model = TransFormerModel(model_dimension=512, num_head=1, num_encoder=1, num_decoder=1, vocab_size=20).to(device)
     output = model(input, output)
     print(output)
