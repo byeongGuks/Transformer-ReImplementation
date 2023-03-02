@@ -45,6 +45,15 @@ class TranslationDataset(Dataset):
         y = torch.IntTensor(self.trg_tokenizer.generate_tokens(self.trg_sentences[idx]))
         return x, y
     
+    def collate_fn(samples):
+        inputs = [sample['input'] for sample in samples]
+        labels = [sample['label'] for sample in samples]
+        padded_inputs = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True)
+        return {'input' : padded_inputs.contiguous(),
+                'label' : torch.stack(labels).contiguous()}        
+        
+        
+    
     
     
 def test() :

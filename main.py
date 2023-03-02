@@ -1,11 +1,13 @@
 import file_reader
 import tokenizer
-import sklearn
+import torch
 from sklearn.model_selection import train_test_split
 from tokenizer import Bpe_tokenizer
 from data_loader import TranslationDataset
 import argparse
 from data_loader import TranslationDataset
+from torch.utils.data import DataLoader
+from model import TransFormerModel
 
 
 def get_arguments() :
@@ -17,6 +19,8 @@ def get_arguments() :
     parser.add_argument('--train_file_path_output', default='data/de-en/train.de', help="ouput text") ## file open 에서 codec 문제가 해결이 안됨,,,, 이유 찾기
     parser.add_argument('--test_file_path_input', default="data/de-en/test.en")
     parser.add_argument('--test_file_path_input', default="data/de-en/test.de")
+    parser.add_argument('--batch_size', default=128)
+    parser.add_argument('--epoch', default=100)
     
     args = parser.parse_args()
     
@@ -25,6 +29,27 @@ def get_arguments() :
 
 def train(args) :
     train_dataset = TranslationDataset('data/de-en/', Bpe_tokenizer, args.vocab_size, language_pair="en-de")
+    
+    data_loader = DataLoader(dataset=train_dataset, batch_size=args.batch, suffle=True, collate_fn=train_dataset.collate_fn)
+    
+    model = TransFormerModel(model_dimension = 512, num_head = 8, num_encoder = 6, num_decoder = 6, vocab_size=32000)
+    
+    ## Loss function
+    criterian = torch.nn.NLLLoss(ignore_index=0) ## padding ignore
+    
+    ## Optimizer
+    lr = (512 ** -0.5) * min()
+    optimizer = torch.optim.Adam(betas=(0.9, 0.98), eps=1e-9)
+    
+    ## training
+    for epoch in range(args.epoch):
+        train_loss = 0
+        train_total = 0
+        model.train()
+        for i, data in enumerate(data_loader):
+            x, y = data
+    
+    
     
     
 
