@@ -13,7 +13,7 @@ class Bpe_tokenizer:
         self.vocabulary = {}
         self.vocab_size = vocab_size
         self.__make_vocabulary(vocab_size)
-        self.UNKNOWN_TOKEN = -1
+        self.UNKNOWN_TOKEN = 2
         self.WHITE_SPACE = '</w>'
         self.tokens = self.__make_tokens()
         #print(self.tokens)
@@ -65,7 +65,8 @@ class Bpe_tokenizer:
                 self.vocabulary[unit] = self.vocabulary[unit] + self.word_dict[word] if (unit in self.vocabulary) else self.word_dict[word]
         
         if vocab_size != -1 :
-            count = vocab_size - len(self.vocabulary)    
+            count = vocab_size - len(self.vocabulary) 
+             
         for i in tqdm(range(count), desc="making vocabulary", mininterval=0.1) :
             max_pair, max_count = self.__search_max_pair(self.word_dict)
             subwords = max_pair.split(' ')
@@ -81,9 +82,11 @@ class Bpe_tokenizer:
     
     def __make_tokens(self) :
         tokens = {}
-        tokens['<unk>'] = -1
+        
         tokens['<pad>'] = 0
-        id = 1
+        tokens['bos'] = 1
+        tokens['<unk>'] = 2
+        id = 2
         for word in self.vocabulary :
             tokens[word] = id
             id += 1

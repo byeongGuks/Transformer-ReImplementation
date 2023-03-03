@@ -14,43 +14,53 @@ def get_arguments() :
     parser = argparse.ArgumentParser(description='transformer argument description', prefix_chars='--')
     parser.add_argument('--mode', default='train')
     parser.add_argument('--max_sequence_length', default=512, help="max sequence length")
-    parser.add_argument('--vocab_size', default=16000, help="vocabulary size")
+    parser.add_argument('--vocab_size', default=100, help="vocabulary size")
     parser.add_argument('--train_file_path_input', default='data/de-en/train.en', help="input text")
     parser.add_argument('--train_file_path_output', default='data/de-en/train.de', help="ouput text") ## file open 에서 codec 문제가 해결이 안됨,,,, 이유 찾기
     parser.add_argument('--test_file_path_input', default="data/de-en/test.en")
-    parser.add_argument('--test_file_path_input', default="data/de-en/test.de")
+    parser.add_argument('--test_file_path_output', default="data/de-en/test.de")
     parser.add_argument('--batch_size', default=128)
     parser.add_argument('--epoch', default=100)
     
-    args = parser.parse_args()
-    
-    print(args.max_seq_len)    
+    args = parser.parse_args()  
     return args
 
 def train(args) :
-    train_dataset = TranslationDataset('data/de-en/', Bpe_tokenizer, args.vocab_size, language_pair="en-de")
+    train_dataset = TranslationDataset('data/de-en/', Bpe_tokenizer, vocab_size = args.vocab_size, language_pair="en-de")
     
-    data_loader = DataLoader(dataset=train_dataset, batch_size=args.batch, suffle=True, collate_fn=train_dataset.collate_fn)
+    data_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=train_dataset.collate_fn)
     
-    model = TransFormerModel(model_dimension = 512, num_head = 8, num_encoder = 6, num_decoder = 6, vocab_size=32000)
+    model = TransFormerModel(model_dimension = 512, num_head = 8, num_encoder = 6, num_decoder = 6, vocab_size=32000 )##args.vocab_size)
     
     ## Loss function
     criterian = torch.nn.NLLLoss(ignore_index=0) ## padding ignore
     
     ## Optimizer
-    lr = (512 ** -0.5) * min()
-    optimizer = torch.optim.Adam(betas=(0.9, 0.98), eps=1e-9)
+    warmup_steps = 4000
+    
+    optimizer = torch.optim.Adam(model.parameters(), betas=(0.9, 0.98), eps=1e-9)
     
     ## training
+    step_num = 0
     for epoch in range(args.epoch):
         train_loss = 0
         train_total = 0
         model.train()
         for i, data in enumerate(data_loader):
-            x, y = data
-    
-    
-    
+            step_num += 1
+            lr = (512 ** -0.5) * min(step_num ** -0.5, step_num * (warmup_steps ** -1.5))
+            
+            inputs, targets = data.values()
+            
+            ## output right shift
+            bos_tokens = torch.ones(targets.size()[0], 1).long() ##.cuda()
+            targets = torch.cat((bos_tokens, targets), dim=-1)
+            
+            outputs = model(inputs, targets)
+            print(outputs)
+            
+            break
+        break
     
 
 def test() :
@@ -62,7 +72,10 @@ def main(args) :
     if(args.mode == 'test') :
         test()
 
-print(x_train_dictionary)
+
+if __name__ == "__main__":
+    print("test")
+    train(get_arguments())
 
 #src_tokenizer = Bpe_tokenizer(x_train_dictionary, VOCAB_SIZE)
 #trg_tokenizer = Bpe_tokenizer(y_train_dictionary, VOCAB_SIZE)

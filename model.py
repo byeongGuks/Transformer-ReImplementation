@@ -53,15 +53,21 @@ class Embedding(nn.Module):
     def __make_positional_vector (self, pos) :
         return [pos/np.power(10000, 2*(hidden_i//2)/ self.model_dimension) for hidden_i in range(self.model_dimension)]
     
-    def __make_positional_encodings (self, sequence_length) :
-        positional_encodings = np.array([self.__make_positional_vector(i) for i in range(sequence_length)])
+    def __make_positional_encodings (self, sequence_length, batch_size = 128) :
+        positional_encodings = np.array([[self.__make_positional_vector(i) for i in range(sequence_length)] for i in range(batch_size)])
         positional_encodings[:, 0::2] = np.sin(positional_encodings[:, 0::2])
         positional_encodings[:, 1::2] = np.cos(positional_encodings[:, 1::2])
+
         return positional_encodings
 
     def forward (self, x) :
+        print(x.size())
         embedded_x = self.embedding_layer(x) ## todo : . In the embedding layers, we multiply those weights by √dmodel.
-        position_x = self.__make_positional_encodings(len(x))
+        position_x = self.__make_positional_encodings(sequence_length= x.size(dim=1), batch_size=x.size(dim=0))
+        
+        print(len(x))
+        print(embedded_x.size())
+        print(torch.tensor(position_x).size())
         return embedded_x + torch.tensor(position_x)
 
 class Encoder(nn.Module):
@@ -96,11 +102,11 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.multi_head_attention = Multi_Head_Attention()
         self.fc_layer = nn.Sequential(
-            nn.Linear(model_dimension, fc_dimension),
+            nn.Linear(model_dimension, fc_dimension, dtype=torch.float64),
             nn.ReLU(),
-            nn.Linear(fc_dimension, model_dimension)
+            nn.Linear(fc_dimension, model_dimension, dtype=torch.float64)
         )
-        self.layer_norm = nn.LayerNorm(model_dimension)
+        self.layer_norm = nn.LayerNorm(model_dimension, dtype=torch.float64)
     
     def forward(self, x, y) :
         ## masked multi head attention
@@ -127,9 +133,9 @@ class TransFormerModel(nn.Module) :
         self.vocab_size = vocab_size
         self.encoders = [Encoder(model_dimension = self.model_dimension) for i in range(num_encoder)]
         self.decoders = [Decoder(model_dimension = self.model_dimension) for i in range(num_encoder)]
-        self.in_embedding = Embedding(self.model_dimension)
-        self.out_embedding = Embedding(self.model_dimension)
-        self.Linear = nn.Linear(model_dimension, model_dimension)
+        self.in_embedding = Embedding(model_dimension = self.model_dimension, vocab_size=vocab_size)
+        self.out_embedding = Embedding(model_dimension = self.model_dimension, vocab_size=vocab_size)
+        self.Linear = nn.Linear(model_dimension, model_dimension, dtype=torch.float64)
                 
     
     def forward(self, x, y):
@@ -138,7 +144,6 @@ class TransFormerModel(nn.Module) :
         
         for encoder in self.encoders :
             embedded_x = encoder(embedded_x)
-        return embedded_x
         
         for decoder in self.decoders :
             embedded_y = decoder(embedded_x, embedded_y)
@@ -152,9 +157,9 @@ def test():
     print("---start test---")
     device = torch.device("cuda: 0" if torch.cuda.is_available() else "cpu")
     
-    input = torch.LongTensor([i for i in range(512)])
-    output = torch.LongTensor([i for i in range(512)])
-    model = TransFormerModel(model_dimension=512, num_head=1, num_encoder=1, num_decoder=1, vocab_size=20).to(device)
+    input = torch.LongTensor([[i for i in range(512)] for j in range(128)])
+    output = torch.LongTensor([[i for i in range(512)] for j in range(128)])
+    model = TransFormerModel(model_dimension=512, num_head=8, num_encoder=2, num_decoder=2, vocab_size=1000).to(device)
     output = model(input, output)
     print(output)
 
