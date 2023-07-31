@@ -23,9 +23,9 @@ class Multi_Head_Attention(nn.Module):
     ## key : key dimension
     ## value : value dimension
     def __calculate_attention(self, query, key, value) :
-        attention = torch.mm(key, torch.transpose(query, 0, 1)) / math.sqrt(self.key_dimension) ## dot product attention / key dimension
+        attention = torch.matmul(key, query) / math.sqrt(self.key_dimension) ## dot product attention / key dimension
         attention_score = torch.nn.functional.softmax(attention, dim=1) 
-        attention_value = torch.mm(attention_score, value) ## sequence length * value dimenstion 
+        attention_value = torch.matmul(attention_score, value) ## sequence length * value dimenstion 
         return attention_value
         
     def forward (self, query, key, value, is_masked = False) :
@@ -61,13 +61,9 @@ class Embedding(nn.Module):
         return positional_encodings
 
     def forward (self, x) :
-        print(x.size())
         embedded_x = self.embedding_layer(x) ## todo : . In the embedding layers, we multiply those weights by √dmodel.
         position_x = self.__make_positional_encodings(sequence_length= x.size(dim=1), batch_size=x.size(dim=0))
         
-        print(len(x))
-        print(embedded_x.size())
-        print(torch.tensor(position_x).size())
         return embedded_x + torch.tensor(position_x)
 
 class Encoder(nn.Module):
