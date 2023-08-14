@@ -29,7 +29,7 @@ class Multi_Head_Attention(nn.Module):
         return attention_value
         
     def forward (self, query, key, value, is_masked = False) :
-        queries = self.query_layer(query)
+        queries = self.query_layer(query) # 512*64
         keys = self.key_layer(key)
         values = self.value_layer(value)
         

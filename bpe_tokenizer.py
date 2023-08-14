@@ -84,8 +84,9 @@ class Bpe_tokenizer:
         tokens = {}
         
         tokens['<pad>'] = 0
-        tokens['bos'] = 1
+        tokens['<bos>'] = 1
         tokens['<unk>'] = 2
+        #tokens['<eos>'] = 3
         id = 2
         for word in self.vocabulary :
             tokens[word] = id

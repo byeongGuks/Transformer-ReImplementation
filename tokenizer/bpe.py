@@ -1,6 +1,6 @@
 import sys
 import io
-from tqdm import tqdm
+from tqdm.auto import tqdm
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf8')
 sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf8')
 
@@ -9,9 +9,14 @@ class BPE_tokenizer:
     def __init__ (self, source_text, vocab_size = 12000):
         self.source_text = source_text
         self.dictionary = {} ### key: word, value: count (word is made up vocabulary tokens)
-        self.vocabulary = {} ### key: bpe token(natural word), value: token id
+        self.vocabulary_L2T = {} ### key: bpe token(natural word), value: token id
+        self.vocabulary_T2L = [] ### index: token_id, value: subword
+        self.vocab_count = {} ### key : subword, value: count
         self.vocab_size = vocab_size
         self.__make_vocabulary(self.vocab_size)
+        
+        self.WHITE_SPACE = '</w>'
+        self.UNKNOWN_TOKEN = 2
 
     def __search_maxpair (self) :
         # 1. pair count
@@ -50,12 +55,12 @@ class BPE_tokenizer:
             new_word_dict[new_word] = self.dictionary[word] ## change word with new key
         return new_word_dict
                     
-    def __init_vocabulary(self) :
+    def __init_vocab_count(self) :
         for word in self.dictionary :
             unit_list = word.split(' ')
             cnt = self.dictionary[word]
             for unit in unit_list :
-                self.vocabulary[unit] = self.vocabulary[unit] + cnt if unit in self.vocabulary else cnt
+                self.vocab_count[unit] = self.vocab_count[unit] + cnt if unit in self.vocab_count else cnt
         
     def __make_vocabulary(self, vocab_size, count=1000) :
         ### make dictionary
@@ -64,16 +69,16 @@ class BPE_tokenizer:
             word_list = sentence.split(' ')
             for word in word_list:
                 word = word.lower()
-                word = ' '.join(word)
+                word = ' '.join(word) + ' ' + '</w>' ### self.WHITE_SPACE
                 self.dictionary[word] = self.dictionary[word] + 1 if word in self.dictionary else 1
         
         ### make vocabulary
         # 1. initialize
-        self.__init_vocabulary()
+        self.__init_vocab_count()
         
         # 2. BPE algorithm
-        count = vocab_size - len(self.vocabulary)
-        for i in tqdm(range(0, count), desc="making vocabulary", mininterval=0.1) :
+        count = vocab_size - len(self.vocab_count)
+        for i in tqdm(range(count), desc="making vocabulary", position=0, leave=False) :
             max_pair, max_count = self.__search_maxpair()
             subwords = max_pair.split(' ')
             if len(subwords) == 1 : ## bpe algorithm is converage so there is no subword for merged
@@ -82,12 +87,60 @@ class BPE_tokenizer:
             backword = subwords[1]
             
             self.dictionary = self.__merge_maxpair(frontword=frontword, backword=backword)
-            self.vocabulary[frontword + backword] = max_count
-            self.vocabulary[frontword] = self.vocabulary[frontword] - max_count
-            self.vocabulary[backword] = self.vocabulary[backword] - max_count
+            self.vocab_count[frontword + backword] = max_count
+            self.vocab_count[frontword] = self.vocab_count[frontword] - max_count
+            self.vocab_count[backword] = self.vocab_count[backword] - max_count
+        
+        # 3. bulid vocabulary
+        self.vocabulary_L2T['<pad>'] = 0
+        self.vocabulary_L2T['<bos>'] = 1
+        self.vocabulary_L2T['<unk>'] = 2
+        
+        self.vocabulary_T2L = ['<pad>', '<bos>', '<unk>']
+        id = 3
+        for subword in self.vocab_count :
+            self.vocabulary_L2T[subword] = id
+            self.vocabulary_T2L.append(subword)
+            id += 1
+        
+            
+    def tokenize(self, word):
+        word = word
+        token_sequence = []
+        
+        pre_word = ""
+        curr_token = -1
+        ## find logest subword that enrolled vocabulary started i position
+        i = 0
+        while i < len(word) :
+            for j in range(len(word) - i) :
+                end_position = len(word) - j
+                sub_word = word[i:end_position]
+                if sub_word in self.vocabulary_L2T :
+                    token_sequence.append(self.vocabulary_L2T[sub_word])
+                    i = end_position - 1
+                    break
+                if j == (len(word) - i) - 1 : ## 마지막 까지 match 안됐다면 unknown token
+                    token_sequence.append(self.UNKNOWN_TOKEN)
+                    
+            i+=1
+        token_sequence.append(self.vocabulary_L2T[self.WHITE_SPACE])     
+        return token_sequence
+    
+    def encode(self, sentences):
+        sentences = sentences.lower()
+        token_sequence = []
+        words = sentences.split(' ')
+        for word in words :
+            token_sequence += self.tokenize(word)
+        return token_sequence
+    
+    def decode(self, token_sequence):
+        sentence = ""
+        for token in token_sequence :
+            sentence += self.vocabulary_T2L[token]
+        return sentence
 
-        print(self.dictionary)
-        print(self.vocabulary)
                 
 if __name__ == "__main__":
     print("test")
@@ -99,4 +152,14 @@ if __name__ == "__main__":
         "It must also do it at ambient pressure for it to have practical applications beyond the laboratory – such as levitating trains,",
         "efficient power lines or cheaper MRI machines. or"
     ]
-    tokenizer = BPE_tokenizer(sorce_text)
+    tokenizer = BPE_tokenizer(sorce_text, vocab_size=60)
+    print(tokenizer.dictionary)
+    print(tokenizer.vocab_count)
+    print(tokenizer.vocabulary_L2T)
+    print(tokenizer.vocabulary_T2L)
+    
+    example_sentence = "efficient power lines or cheaper MRI machines. or"
+    encode_sentence = tokenizer.encode(example_sentence)
+    print(encode_sentence)
+    print(tokenizer.decode(encode_sentence))
+    
