@@ -1,22 +1,38 @@
 import sys
 import io
 from tqdm.auto import tqdm
+import json
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf8')
 sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf8')
 
 
 class BPE_tokenizer:
-    def __init__ (self, source_text, vocab_size = 12000):
+    def __init__ (self, source_text, vocab_size = 12000, vocab_L2T_filepath=None, vocab_T2L_filepath=None):
         self.source_text = source_text
         self.dictionary = {} ### key: word, value: count (word is made up vocabulary tokens)
         self.vocabulary_L2T = {} ### key: bpe token(natural word), value: token id
         self.vocabulary_T2L = [] ### index: token_id, value: subword
         self.vocab_count = {} ### key : subword, value: count
         self.vocab_size = vocab_size
-        self.__make_vocabulary(self.vocab_size)
         
+        if (vocab_T2L_filepath!=None) and (vocab_L2T_filepath!=None) :
+            try :
+                with open(vocab_L2T_filepath, 'r') as file :
+                    data = json.load(file)
+                    self.vocabulary_L2T = data
+                with open(vocab_T2L_filepath, 'r') as file :
+                    data = json.load(file)
+                    self.vocabulary_T2L = data
+            except : ## for unvalid file path
+                self.__make_vocabulary(vocab_size=self.vocab_size)
+        else :
+            self.__make_vocabulary(vocab_size=self.vocab_size)
+            
         self.WHITE_SPACE = '</w>'
         self.UNKNOWN_TOKEN = 2
+    
+    def __len__(self) :
+        return len(self.vocabulary_L2T)
 
     def __search_maxpair (self) :
         # 1. pair count
@@ -62,7 +78,7 @@ class BPE_tokenizer:
             for unit in unit_list :
                 self.vocab_count[unit] = self.vocab_count[unit] + cnt if unit in self.vocab_count else cnt
         
-    def __make_vocabulary(self, vocab_size, count=1000) :
+    def __make_vocabulary(self, vocab_size) :
         ### make dictionary
         ### calculate word count, storing words as sparate tokens in dictionary for bpe algorithm
         for sentence in self.source_text :
@@ -102,8 +118,7 @@ class BPE_tokenizer:
             self.vocabulary_L2T[subword] = id
             self.vocabulary_T2L.append(subword)
             id += 1
-        
-            
+             
     def tokenize(self, word):
         word = word
         token_sequence = []
@@ -162,4 +177,8 @@ if __name__ == "__main__":
     encode_sentence = tokenizer.encode(example_sentence)
     print(encode_sentence)
     print(tokenizer.decode(encode_sentence))
+    print(tokenizer.__len__())
     
+
+
+

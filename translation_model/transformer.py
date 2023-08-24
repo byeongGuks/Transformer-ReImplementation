@@ -134,20 +134,22 @@ class Transformer(nn.Module) :
                  n_head=8, 
                  n_encoder=6, 
                  n_decoder=6,
-                 vocab_size=32000) :
+                 src_vocab_size=32000,
+                 trg_vocab_size=32000) :
         
         super(Transformer, self).__init__()
         self.d_model = d_model
         self.n_head = n_head
         self.n_encoder = n_encoder
         self.n_decoder = n_decoder
-        self.vocab_size = vocab_size
+        self.src_vocab_size = src_vocab_size
+        self.trg_vocab_size = trg_vocab_size
         
         self.encoders = [Encoder(d_model=self.d_model, n_head=self.n_head) for i in range(self.n_encoder)]
         self.decoders = []
-        self.in_embedding = Embedding(vocab_size=self.vocab_size, d_model=self.d_model)
-        self.out_embedding = Embedding(vocab_size=self.vocab_size, d_model=self.d_model)
-        self.linear = torch.nn.Linear(d_model, d_model, dtype=torch.float32)
+        self.in_embedding = Embedding(vocab_size=self.src_vocab_size, d_model=self.d_model)
+        self.out_embedding = Embedding(vocab_size=self.trg_vocab_size, d_model=self.d_model)
+        self.linear = torch.nn.Linear(d_model, self.trg_vocab_size, dtype=torch.float32)
 
     def forward(self, x, y) :
         encoded_x = self.encode(x)
@@ -179,7 +181,7 @@ def test():
     
     input = torch.LongTensor([[i for i in range(512)] for j in range(128)])
     output = torch.LongTensor([[i for i in range(512)] for j in range(128)])
-    model = Transformer(d_model=512, n_head=8, n_encoder=2, n_decoder=2, vocab_size=1000).to(device)
+    model = Transformer(d_model=512, n_head=8, n_encoder=2, n_decoder=2, src_vocab_size=1000, trg_vocab_size=1000).to(device)
 
     output = model(input, output)
     print(output)
