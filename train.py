@@ -72,6 +72,8 @@ def train(args) :
     model.train()
     for epoch in range(args.epoch):
         train_loss = 0
+        train_cnt = 0
+        
         for i, data in enumerate(dataloader):
             src = data['input']
             trg = data['output']
@@ -79,8 +81,12 @@ def train(args) :
             model.zero_grad()
             outputs = model(src, trg)
             
-            print(outputs.view(-1, trg_tokenizer.__len__()).size())
-            print(trg.view(-1).size())
+            # remove bos token and add pad token
+            trg = trg[:,1:]
+            pads = torch.zeros(trg.size()[0], 1)
+            trg = torch.cat((trg, pads), dim=-1)
+            if torch.cuda.is_available() :
+                trg = trg.cuda
             
             loss = criterion(outputs.view(-1, trg_tokenizer.__len__()), trg.view(-1))
             #print(outputs)
@@ -89,13 +95,11 @@ def train(args) :
             optimizer.step()
             train_loss += loss.item()
             
+            train_cnt +=1
             
-            print(loss.size())
-            print(loss)
-            print(loss.item)
-            print(train_loss)
-            break
-        break
+        print("epoch",epoch, " train loss : " + (train_loss/train_cnt))
+        if epoch % 5 == 0 :
+            torch.save(model, './weights/model' + epoch + '.pth')
 
 def main(args) :
     if(args.mode == 'train') :
