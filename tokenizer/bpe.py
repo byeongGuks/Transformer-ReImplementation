@@ -110,9 +110,10 @@ class BPE_tokenizer:
         # 3. bulid vocabulary
         self.vocabulary_L2T['<pad>'] = 0
         self.vocabulary_L2T['<bos>'] = 1
-        self.vocabulary_L2T['<unk>'] = 2
+        self.vocabulary_L2T['<eos>'] = 2
+        self.vocabulary_L2T['<unk>'] = 4
         
-        self.vocabulary_T2L = ['<pad>', '<bos>', '<unk>']
+        self.vocabulary_T2L = ['<pad>', '<bos>', '<eos>', '<unk>']
         id = 3
         for subword in self.vocab_count :
             self.vocabulary_L2T[subword] = id
