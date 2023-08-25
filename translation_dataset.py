@@ -18,7 +18,7 @@ class TranslationDataset(Dataset) :
     
     def __getitem__(self, idx) :
         x = torch.LongTensor(self.src_tokenizer.encode(self.sentences[idx][self.src_lang]))
-        y = torch.LongTensor([1] + self.trg_tokenizer.encode(self.sentences[idx][self.trg_lang])) ## add bos token
+        y = torch.LongTensor(self.trg_tokenizer.encode(self.sentences[idx][self.trg_lang])) ## add bos token
         ## 1 == self.trg_tokenizer.vocabulary_L2T['<bos>']
         padded_x = torch.nn.functional.pad(input = x, pad = (0, self.model_dimension-x.size(dim=0)), mode='constant', value=0) ## 512
         padded_y = torch.nn.functional.pad(input = y, pad = (0, self.model_dimension-y.size(dim=0)), mode='constant', value=0) ## 512 bos token 자리 남겨둠 
